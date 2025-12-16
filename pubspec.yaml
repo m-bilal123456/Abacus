@@ -1,0 +1,56 @@
+name: abacus
+description: "App for business"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_localizations:
+    sdk: flutter
+
+  # UI & functionality
+  cupertino_icons: ^1.0.8
+  fluttertoast: ^9.0.0
+  carousel_slider: ^5.1.1
+  shared_preferences: ^2.5.3
+  provider: ^6.1.5+1
+  audioplayers: ^6.5.1
+  url_launcher: ^6.3.0
+  font_awesome_flutter: ^10.7.0
+
+  # Location & maps (free, working versions)
+  geolocator: ^14.0.2
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon.png"
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: NotoNastaliq
+      fonts:
+        - asset: assets/NotoNastaliqUrdu-Regular.ttf
+
+  assets:
+    - assets/
+#    - assets/start.jpg
+#    - assets/map.jpg
+ #   - assets/audio.mp3
+  #  - assets/photo.jpeg

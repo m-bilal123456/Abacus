@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "291373870320",
+    "project_id": "abacus-b6d57",
+    "storage_bucket": "abacus-b6d57.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:291373870320:android:48d82d080c28d304536635",
+        "android_client_info": {
+          "package_name": "com.example.tajir_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIIDQBffUqZb28bY_m4LEBFRolpXJVFGs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

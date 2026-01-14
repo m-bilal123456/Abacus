@@ -76,7 +76,7 @@ class CartPage extends StatelessWidget {
                                 children: [
                                   // Product image
                                   Image.network(
-                                    item["image"] ?? "https://via.placeholder.com/150",
+                                    item["image"] ?? "https://cdn-icons-png.flaticon.com/512/415/415733.png",
                                     width: 65,
                                     height: 65,
                                     fit: BoxFit.cover,

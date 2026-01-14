@@ -272,8 +272,10 @@ class _ProductScreenState extends State<ProductScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) =>
-                          CategoryProductsScreen(categoryName: "برانڈ $index"),
+                          const CategoryProductsScreen(
+                            categoryKey: "grocery",
                     ),
+                  )
                   );
                 },
                 child: Container(

@@ -1,5 +1,7 @@
 import 'package:abacus/cart_provider.dart';
+import 'package:abacus/imagecachemanager.dart';
 import 'package:abacus/search_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,29 +9,44 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Helper to convert numbers to Urdu numerals
 String toUrduNumber(dynamic number) {
   const english = ['0','1','2','3','4','5','6','7','8','9'];
+  // ignore: unused_local_variable
   const urdu = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
   String str = number.toString();
   for (int i = 0; i < english.length; i++) {
-    str = str.replaceAll(english[i], urdu[i]);
+    str = str.replaceAll(english[i], english[i]);
   }
   return str;
 }
 
-class CategoryProductsScreen extends StatelessWidget {
 
-  /// MUST match Firestore exactly (example: "grocery")
-  final String categoryKey;
+
+class CategoryProductsScreen extends StatelessWidget {
+  final String categoryKey; // Brand (First letter capital)
 
   const CategoryProductsScreen({
     super.key,
     required this.categoryKey,
   });
 
+void _preloadImages() async {
+  final snapshot = await FirebaseFirestore.instance
+      .collection('testproducts')
+      .where('brand', isEqualTo: categoryKey)
+      .get();
+
+  for (var doc in snapshot.docs) {
+    final imageUrl = doc.data()['product_image']?.toString();
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      AppImageCacheManager().downloadFile(imageUrl);
+    }
+  }
+}
+
   @override
   Widget build(BuildContext context) {
-
-    // 🔍 Debug log (keep this until everything is stable)
-    debugPrint("🔥 CATEGORY QUERY => $categoryKey");
+    debugPrint("🔥 BRAND QUERY => $categoryKey");
+    // Preload images when the screen is built
+  _preloadImages();
 
     return Scaffold(
       appBar: AppBar(
@@ -46,7 +63,7 @@ class CategoryProductsScreen extends StatelessWidget {
                   ),
                 onChanged: searchProv.updateQuery,
                 decoration: InputDecoration(
-                  hintText: "گروسری میں تلاش کریں...",
+                  hintText: "$categoryKey میں تلاش کریں...",
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: searchProv.query.isNotEmpty
                       ? IconButton(
@@ -71,13 +88,11 @@ class CategoryProductsScreen extends StatelessWidget {
         builder: (context, searchProv, _) {
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('products')
-                .where('category', isEqualTo: categoryKey)
+                .collection('testproducts')
+                .where('brand', isEqualTo: categoryKey)
                 .snapshots(),
 
             builder: (context, snapshot) {
-
-              // ❌ Error
               if (snapshot.hasError) {
                 return Center(
                   child: Text(
@@ -87,26 +102,24 @@ class CategoryProductsScreen extends StatelessWidget {
                 );
               }
 
-              // ⏳ Loading
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              // 📭 No products
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(
-                  child: Text(
-                    "کوئی پروڈکٹ موجود نہیں",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                );
+                return const Center(child: Text("کوئی پروڈکٹ موجود نہیں"));
               }
 
-              // 🔍 Search filter
               final products = snapshot.data!.docs.where((doc) {
-                final name = doc['name'].toString().toLowerCase();
-                return name.contains(searchProv.query.toLowerCase());
+                final name =
+                    doc['product_name'].toString().toLowerCase();
+                final query = searchProv.query.toLowerCase();
+                return name.contains(query);
               }).toList();
+
+              if (products.isEmpty) {
+                return const Center(child: Text("کوئی پروڈکٹ موجود نہیں"));
+              }
 
               return GridView.builder(
                 padding: const EdgeInsets.all(10),
@@ -115,17 +128,31 @@ class CategoryProductsScreen extends StatelessWidget {
                   childAspectRatio: 0.75,
                 ),
                 itemCount: products.length,
-
                 itemBuilder: (_, index) {
                   final product = products[index];
 
-                  final int price = product['price'];
-                  final String name = product['name'];
+                  final String name = product['product_name'];
+                  final int packItem =
+                      (product['packaging'] as num).toInt();
+
+                  final int retailPrice =
+                      (product['retail_price'] as num).toInt();
+
+                  final int perPiecePrice =
+                      (product['per_piece_price'] as num).toInt();
+
                   int qty = 1;
+
+                  // String originalLink = product['product_image'];
+                  // String fileId =
+                  // originalLink.substring(originalLink.indexOf('/d/') + 3, originalLink.indexOf('/view'));
+                  // String newLink = 'https://drive.google.com/uc?export=view&id=$fileId';
+
+                  
 
                   return StatefulBuilder(
                     builder: (context, setState) {
-                      final int totalPrice = price * qty;
+                      final int totalPrice = retailPrice;
 
                       return Container(
                         margin: const EdgeInsets.all(8),
@@ -134,21 +161,20 @@ class CategoryProductsScreen extends StatelessWidget {
                           color: Colors.white,
                           boxShadow: const [
                             BoxShadow(
-                              color: Colors.grey,
-                              spreadRadius: 2,
-                              blurRadius: 5,
+                              color: Color(0x22000000), // soft shadow
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
                             ),
                           ],
                         ),
-
                         child: Column(
                           children: [
-
                             Expanded(
+                              flex: 4,
                               child: Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Image.network(
-                                  "https://cdn-icons-png.flaticon.com/512/415/415733.png",
+                                padding: const EdgeInsets.all(6),
+                                child: _ProductImage(
+                                  imageUrl: product['product_image']?.toString() ?? "",
                                 ),
                               ),
                             ),
@@ -162,14 +188,39 @@ class CategoryProductsScreen extends StatelessWidget {
                               ),
                             ),
 
+                            const SizedBox(height: 4),
+
+                            // ✅ PACK ITEMS
                             Text(
-                              "₨${toUrduNumber(price)} فی آئٹم",
+                              "${toUrduNumber(packItem)} فی آئٹم",
                               style: const TextStyle(
-                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                                fontSize: 15,
+                              ),
+                            ),
+
+                            // ✅ PER PIECE PRICE
+                            Text(
+                              "فی پیس: ₨${toUrduNumber(perPiecePrice)}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
                                 color: Colors.green,
                               ),
                             ),
+
+                            const SizedBox(height: 4),
+
+                            /*// ✅ SALE PRICE
+                            Text(
+                              "₨${toUrduNumber(salesPrice)} فی آئٹم",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                                fontSize: 15,
+                              ),
+                            ),*/
 
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -180,18 +231,10 @@ class CategoryProductsScreen extends StatelessWidget {
                                     if (qty > 1) setState(() => qty--);
                                   },
                                 ),
-                                Text(
-                                  toUrduNumber(qty),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                Text(toUrduNumber(qty)),
                                 IconButton(
                                   icon: const Icon(Icons.add_circle_outline),
-                                  onPressed: () {
-                                    setState(() => qty++);
-                                  },
+                                  onPressed: () => setState(() => qty++)
                                 ),
                               ],
                             ),
@@ -213,9 +256,11 @@ class CategoryProductsScreen extends StatelessWidget {
                                     listen: false,
                                   ).addToCart({
                                     "name": name,
-                                    "price": price,
+                                    "price": retailPrice,
+                                    "per_piece_price": perPiecePrice,
+                                    "pack": packItem,
                                     "qty": qty,
-                                    "image": "https://via.placeholder.com/150",
+                                    "image": product["product_image"] ?? "https://via.placeholder.com/150",
                                   });
                                 },
                                 child: const Text("کارٹ میں شامل کریں"),
@@ -233,6 +278,44 @@ class CategoryProductsScreen extends StatelessWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _ProductImage extends StatelessWidget {
+  final String imageUrl;
+
+  const _ProductImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.trim().isEmpty) {
+      return Container(
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.image,
+          size: 40,
+          color: Colors.green,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        cacheManager: AppImageCacheManager(), // ✅ use custom cache manager
+        fit: BoxFit.cover,
+        placeholder: (context, url) =>
+            const Center(child: CircularProgressIndicator()),
+        errorWidget: (_, __, ___) => const Center(
+          child: Icon(
+            Icons.broken_image,
+            size: 40,
+            color: Colors.green,
+          ),
+        ),
       ),
     );
   }

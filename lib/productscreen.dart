@@ -1,14 +1,18 @@
 import 'package:abacus/cart_provider.dart';
 import 'package:abacus/cartpage.dart';
 import 'package:abacus/categoryproductscreen.dart';
+import 'package:abacus/imagecachemanager.dart';
+import 'package:abacus/myorderscreens.dart';
 import 'package:abacus/offerscreen.dart';
 import 'package:abacus/othercategoryscreen.dart';
 import 'package:abacus/profilescreen.dart';
 import 'package:abacus/search_provider.dart';
 import 'package:abacus/voicescreen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'carouseldetails.dart';
 
 class ProductScreen extends StatefulWidget {
@@ -25,21 +29,11 @@ class _ProductScreenState extends State<ProductScreen> {
   // ---------------- CATEGORY IMAGES (LOCAL ASSETS) ----------------
   final List<String> categoryImages = [
     "assets/1.jpg",
-    "assets/2.jpg", 
-    "assets/3.jpg", 
-    "assets/4.jpg", 
-    "assets/5.jpg", 
-    "assets/6.jpg", 
-  ];
-
-  // ---------------- BRAND LOGOS (NETWORK) ----------------
-  final List<String> brandLogos= [
-    "https://cdn-icons-png.flaticon.com/512/415/415733.png", // پھل
-    "https://cdn-icons-png.flaticon.com/512/135/135626.png", // سبزیاں
-    "https://cdn-icons-png.flaticon.com/512/3075/3075977.png", // گوشت
-    "https://cdn-icons-png.flaticon.com/512/2910/2910763.png", // بیکری
-    "https://cdn-icons-png.flaticon.com/512/1046/1046784.png", // مشروبات
-    "https://cdn-icons-png.flaticon.com/512/1046/1046791.png", // اسنیکس
+    "assets/2.jpg",
+    "assets/3.jpg",
+    "assets/4.jpg",
+    "assets/5.jpg",
+    "assets/6.jpg",
   ];
 
   final List<Map<String, String>> carouselData = [
@@ -80,6 +74,49 @@ class _ProductScreenState extends State<ProductScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+  // ---------------- FETCH UNIQUE BRANDS WITH IMAGE ----------------
+  Stream<List<Map<String, String>>> fetchBrands() {
+    return FirebaseFirestore.instance
+        .collection('testproducts')
+        .snapshots()
+        .map((snapshot) {
+      final Map<String, String> brands = {};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final brand = data.containsKey('brand') ? data['brand']?.toString().trim() : null;
+        final brandImage =
+            data.containsKey('brand_image') ? data['brand_image']?.toString().trim() : null;
+
+        if (brand != null && brand.isNotEmpty && !brands.containsKey(brand)) {
+          brands[brand] = brandImage ?? "https://via.placeholder.com/150";
+        }
+      }
+
+      return brands.entries.map((e) => {'brand': e.key, 'image': e.value}).toList();
+    });
+  }
+
+  @override
+void initState() {
+  super.initState();
+  _preloadBrandImages();
+}
+
+void _preloadBrandImages() async {
+  final snapshot = await FirebaseFirestore.instance
+      .collection('testproducts')
+      .get();
+
+  for (var doc in snapshot.docs) {
+    final imageUrl = doc.data()['brand_image'];
+    if (imageUrl != null && imageUrl.toString().isNotEmpty) {
+      AppImageCacheManager().downloadFile(imageUrl);
+    }
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -205,11 +242,21 @@ class _ProductScreenState extends State<ProductScreen> {
               return InkWell(
                 onTap: () {
                   if (index == 0) {
+                    // Offers
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const OfferScreen()),
                     );
-                  } else {
+                  } 
+                  else if (index == 3) {
+                    // ✅ 4th HOME GRID → My Orders
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyOrdersScreen()),
+                    );
+                  } 
+                  else {
+                    // Other categories
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -245,7 +292,7 @@ class _ProductScreenState extends State<ProductScreen> {
             },
           ),
 
-          // ---------------- BRAND GRID ----------------
+          // ---------------- DYNAMIC BRAND GRID ----------------
           Align(
             alignment: Alignment.centerLeft,
             child: const Padding(
@@ -257,48 +304,75 @@ class _ProductScreenState extends State<ProductScreen> {
             ),
           ),
 
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(10),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-            ),
-            itemCount: brandLogos.length,
-            itemBuilder: (_, index) {
-              return InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const CategoryProductsScreen(
-                            categoryKey: "grocery",
+          StreamBuilder<List<Map<String, String>>>(
+            stream: fetchBrands(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text("کوئی برانڈ موجود نہیں"));
+              }
+
+              final brands = snapshot.data!;
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(10),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                ),
+                itemCount: brands.length,
+                itemBuilder: (_, index) {
+                  final brand = brands[index]['brand']!;
+                  final imageUrl = brands[index]['image']!;
+
+                  // String originalLink = imageUrl;
+                  // String fileId =
+                  // originalLink.substring(originalLink.indexOf('/d/') + 3, originalLink.indexOf('/view'));
+                  // String newLink = 'https://drive.google.com/uc?export=view&id=$fileId';
+                  // debugPrint("🔥 DRIVE QUERY => $newLink");
+
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CategoryProductsScreen(
+                            categoryKey: brand, // exact match
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                        boxShadow: const [
+                          BoxShadow(
+                              color: Colors.grey,
+                              spreadRadius: 2,
+                              blurRadius: 5),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          cacheManager: AppImageCacheManager(),
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) =>
+                              const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) =>
+                              Center(child: Text(brand)),
+                        )
+                      ),
                     ),
-                  )
                   );
                 },
-                child: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Colors.grey, spreadRadius: 2, blurRadius: 5),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Image.network(
-                      brandLogos[index],
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(child: Icon(Icons.broken_image));
-                      },
-                    ),
-                  ),
-                ),
               );
             },
           ),
@@ -311,7 +385,7 @@ class _ProductScreenState extends State<ProductScreen> {
       SafeArea(child: homeBody),
       const SafeArea(child: OfferScreen()),
       const SafeArea(child: VoiceScreen()),
-      const SafeArea(child: CartPage()),
+      SafeArea(child: CartPage()),
       const SafeArea(child: ProfileScreen()),
     ];
 

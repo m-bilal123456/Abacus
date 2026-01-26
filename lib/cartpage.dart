@@ -1,21 +1,192 @@
-import 'package:abacus/checkoutsummary.dart';
+import 'package:abacus/cache.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'cart_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 // Helper to convert numbers to Urdu numerals
 String toUrduNumber(dynamic number) {
   const english = ['0','1','2','3','4','5','6','7','8','9'];
+  // ignore: unused_local_variable
   const urdu = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
   String str = number.toString();
   for(int i=0;i<english.length;i++){
-    str = str.replaceAll(english[i], urdu[i]);
+    str = str.replaceAll(english[i], english[i]);
   }
   return str;
 }
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
+
+String generateOrderId() {
+  return "ORD-${DateTime.now().millisecondsSinceEpoch}";
+}
+
+Future<Map<String, dynamic>> _getCustomerFromCache() async {
+  final name = await readData("name");
+  final phone = await readData("phoneno");
+  final shop = await readData("shopname");
+  final lat = await readData("latitude");
+  final lng = await readData("longitude");
+
+  return {
+    "name": name ?? "نام موجود نہیں",
+    "phone": phone ?? "",
+    "shop_name": shop ?? "",
+    "location": {
+      "latitude": lat,
+      "longitude": lng,
+    }
+  };
+}
+
+
+
+Future<void> _placeOrder(BuildContext context, CartProvider cart) async {
+  final customer = await _getCustomerFromCache();
+
+  final orderId = "ORD-${DateTime.now().millisecondsSinceEpoch}";
+
+  final order = {
+    "order_id": orderId,
+
+    // 👤 Customer (from ProfileScreen)
+    "customer": {
+      "name": customer["name"],
+      "phone": customer["phone"],
+      "shop_name": customer["shop_name"],
+      "location": customer["location"],
+    },
+
+    // 🛒 Items
+    "items": cart.cart.map((item) {
+      return {
+        "name": item["name"],
+        "price": item["price"],
+        "qty": item["qty"],
+        "total": item["price"] * item["qty"],
+        "image": item["image"] ?? "",
+      };
+    }).toList(),
+
+    // 💰 Meta
+    "grand_total": cart.totalPrice,
+    "status": "unpaid", // pending → confirmed → delivered
+    "created_at": FieldValue.serverTimestamp(),
+  };
+
+  await FirebaseFirestore.instance
+      .collection("orders")
+      .doc(orderId) // order ID = document ID
+      .set(order);
+
+  cart.clearCart();
+}
+
+
+
+
+void _showCheckoutDialog(BuildContext context, CartProvider cart) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) {
+      return FutureBuilder<Map<String, dynamic>>(
+        future: _getCustomerFromCache(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            );
+          }
+
+          final customer = snapshot.data!;
+
+          return AlertDialog(
+            title: const Text("آرڈر کی تصدیق"),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 👤 Customer Info
+                  Text("نام: ${customer["name"]}",
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text("فون: ${customer["phone"]}"),
+                  Text("دکان: ${customer["shop_name"]}"),
+
+                  const SizedBox(height: 10),
+                  const Divider(),
+
+                  // 🛒 Items
+                  ...cart.cart.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: Text(item["name"])),
+                          Text(
+                            "₨${toUrduNumber(item["price"] * item["qty"])}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  const Divider(),
+
+                  // 💰 Total
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("کل رقم:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        "₨${toUrduNumber(cart.totalPrice)}",
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                child: const Text("نہیں"),
+                onPressed: () => Navigator.pop(context),
+              ),
+              ElevatedButton(
+                child: const Text("آرڈر کریں"),
+                onPressed: () async {
+                  Navigator.pop(context);
+
+                  await _placeOrder(context, cart);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text("آرڈر کامیابی سے موصول ہو گیا")),
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +270,7 @@ class CartPage extends StatelessWidget {
                                         const SizedBox(height: 3),
                                         // Price per item
                                         Text(
-                                          "فی آئٹم: ₨${toUrduNumber(item["price"])}",
+                                          "فی آئٹم: ${toUrduNumber(item["pack"])}",
                                           style: const TextStyle(
                                               fontSize: 14,
                                               color: Colors.green,
@@ -184,13 +355,10 @@ class CartPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           ElevatedButton(
-                            onPressed: items.isEmpty ? null : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const CheckoutSummaryPage(),
-                                    ),
-                                  );
+                            onPressed: items.isEmpty
+                              ? null
+                              : () {
+                                  _showCheckoutDialog(context, cart);
                                 },
                             style: ElevatedButton.styleFrom(
                               padding:

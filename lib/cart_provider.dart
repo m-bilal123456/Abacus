@@ -47,6 +47,8 @@ void clearCart() {
       _cart.add({
         "name": item["name"],
         "price": item["price"] ?? 0,
+        "per_piece_price": item["per_piece_price"] ?? 0,
+        "pack": item["pack"],
         "qty": item["qty"] ?? 1,
         "image": item["image"] ?? "",
       });

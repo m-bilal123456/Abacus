@@ -1,11 +1,14 @@
 import 'package:abacus/cart_provider.dart';
 import 'package:abacus/cartpage.dart';
 import 'package:abacus/categoryproductscreen.dart';
+import 'package:abacus/favoritescreen.dart';
 import 'package:abacus/imagecachemanager.dart';
+import 'package:abacus/inventoryscreen.dart';
 import 'package:abacus/myorderscreens.dart';
 import 'package:abacus/offerscreen.dart';
 import 'package:abacus/othercategoryscreen.dart';
 import 'package:abacus/profilescreen.dart';
+import 'package:abacus/reorderscreen.dart';
 import 'package:abacus/search_provider.dart';
 import 'package:abacus/voicescreen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -240,7 +243,7 @@ void _preloadBrandImages() async {
             itemCount: categoryImages.length,
             itemBuilder: (_, index) {
               return InkWell(
-                onTap: () {
+                onTap: () async {
                   if (index == 0) {
                     // Offers
                     Navigator.push(
@@ -248,6 +251,26 @@ void _preloadBrandImages() async {
                       MaterialPageRoute(builder: (_) => const OfferScreen()),
                     );
                   } 
+                  else if (index == 1) {
+                    // ✅ 2nd HOME GRID → Favorites
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                    );
+                  } 
+                  else if (index == 2) {
+                    // ✅ 3rd GRID → Reorder Screen
+                    final goToCart = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ReorderScreen()),
+                    );
+
+                    if (goToCart == true) {
+                      setState(() {
+                        currentIndex = 3; // Switch to Cart tab
+                      });
+                    }
+                  }
                   else if (index == 3) {
                     // ✅ 4th HOME GRID → My Orders
                     Navigator.push(
@@ -255,6 +278,23 @@ void _preloadBrandImages() async {
                       MaterialPageRoute(builder: (_) => const MyOrdersScreen()),
                     );
                   } 
+
+                  else if (index == 4) {
+                    // ✅ 5th HOME GRID → Inventory
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AllProductsScreen()),
+                    );
+                  } 
+
+                  else if (index == 5) {
+                    // ✅ 6th HOME GRID → Inventory
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AllProductsScreen()),
+                    );
+                  } 
+                  
                   else {
                     // Other categories
                     Navigator.push(

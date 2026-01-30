@@ -202,7 +202,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                       final name = item['name'] ?? "نامعلوم";
                                       final qty = item['qty']?.toString() ?? "0";
                                       return Text("$name x $qty");
-                                    }).toList(),
+                                    }),
                                   ],
                                 ),
                               ),

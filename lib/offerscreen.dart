@@ -14,7 +14,6 @@ class _OfferScreenState extends State<OfferScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("پیشکش")),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView.builder(

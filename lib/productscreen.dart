@@ -4,7 +4,6 @@ import 'package:abacus/categoryproductscreen.dart';
 import 'package:abacus/favoritescreen.dart';
 import 'package:abacus/imagecachemanager.dart';
 import 'package:abacus/inventoryscreen.dart';
-import 'package:abacus/myorderscreens.dart';
 import 'package:abacus/offerscreen.dart';
 import 'package:abacus/othercategoryscreen.dart';
 import 'package:abacus/profilescreen.dart';
@@ -79,27 +78,48 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   // ---------------- FETCH UNIQUE BRANDS WITH IMAGE ----------------
-  Stream<List<Map<String, String>>> fetchBrands() {
-    return FirebaseFirestore.instance
-        .collection('testproducts')
-        .snapshots()
-        .map((snapshot) {
-      final Map<String, String> brands = {};
+Stream<List<Map<String, String>>> fetchBrands(String query) {
+  return FirebaseFirestore.instance
+      .collection('testproducts')
+      .snapshots()
+      .map((snapshot) {
+    final Map<String, String> brands = {};
+    final q = query.toLowerCase().trim();
 
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final brand = data.containsKey('brand') ? data['brand']?.toString().trim() : null;
-        final brandImage =
-            data.containsKey('brand_image') ? data['brand_image']?.toString().trim() : null;
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
 
-        if (brand != null && brand.isNotEmpty && !brands.containsKey(brand)) {
-          brands[brand] = brandImage ?? "https://via.placeholder.com/150";
-        }
+      final brand =
+          data['brand']?.toString().trim() ?? '';
+      final brandImage =
+          data['brand_image']?.toString().trim() ??
+              "https://via.placeholder.com/150";
+
+      final productName =
+          data['name']?.toString().toLowerCase() ?? '';
+
+      if (brand.isEmpty) continue;
+
+      // ✅ SHOW BRAND IF:
+      // 1. Brand name matches query
+      // 2. OR product name under that brand matches query
+      final matchesSearch = q.isEmpty ||
+          brand.toLowerCase().contains(q) ||
+          productName.contains(q);
+
+      if (matchesSearch && !brands.containsKey(brand)) {
+        brands[brand] = brandImage;
       }
+    }
 
-      return brands.entries.map((e) => {'brand': e.key, 'image': e.value}).toList();
-    });
-  }
+    return brands.entries
+        .map((e) => {'brand': e.key, 'image': e.value})
+        .toList();
+  });
+}
+
+
+
 
   @override
 void initState() {
@@ -123,6 +143,9 @@ void _preloadBrandImages() async {
 
   @override
   Widget build(BuildContext context) {
+    final searchQuery = context.watch<SearchProvider>().query.trim();
+    final bool isSearching = searchQuery.isNotEmpty;
+
     final List<Widget> imageSliders = carouselData.map((item) {
       return GestureDetector(
         onTap: () {
@@ -212,44 +235,46 @@ void _preloadBrandImages() async {
           ),
 
           // ---------------- CAROUSEL ----------------
-          CarouselSlider(
-            items: imageSliders,
-            options: CarouselOptions(
-              autoPlay: true,
-              aspectRatio: 2,
-              enlargeCenterPage: true,
-            ),
-          ),
-
-          // ---------------- CATEGORY GRID ----------------
-          Align(
-            alignment: Alignment.centerLeft,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              child: Text(
-                'زمرہ جات',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          if (!isSearching)
+            CarouselSlider(
+              items: imageSliders,
+              options: CarouselOptions(
+                autoPlay: true,
+                aspectRatio: 2,
+                enlargeCenterPage: true,
               ),
             ),
-          ),
 
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(10),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+          // ---------------- CATEGORY GRID ----------------
+          if (!isSearching)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                child: Text(
+                  'زمرہ جات',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
-            itemCount: categoryImages.length,
-            itemBuilder: (_, index) {
+
+          if (!isSearching)
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(10),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+              ),
+              itemCount: categoryImages.length,
+              itemBuilder: (_, index) {
               return InkWell(
                 onTap: () async {
                   if (index == 0) {
                     // Offers
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OfferScreen()),
-                    );
+                    setState(() {
+                        currentIndex = 1; // Switch to Offers tab
+                      });
                   } 
                   else if (index == 1) {
                     // ✅ 2nd HOME GRID → Favorites
@@ -272,11 +297,10 @@ void _preloadBrandImages() async {
                     }
                   }
                   else if (index == 3) {
-                    // ✅ 4th HOME GRID → My Orders
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MyOrdersScreen()),
-                    );
+                    // ✅ 4th HOME GRID → Cart
+                    setState(() {
+                        currentIndex = 3; // Switch to Cart tab
+                      });
                   } 
 
                   else if (index == 4) {
@@ -335,17 +359,17 @@ void _preloadBrandImages() async {
           // ---------------- DYNAMIC BRAND GRID ----------------
           Align(
             alignment: Alignment.centerLeft,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               child: Text(
-                'برانڈز',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                isSearching ? 'تلاش کے نتائج' : 'برانڈز',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
           ),
 
           StreamBuilder<List<Map<String, String>>>(
-            stream: fetchBrands(),
+            stream: fetchBrands(context.watch<SearchProvider>().query,),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

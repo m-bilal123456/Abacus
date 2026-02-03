@@ -7,10 +7,11 @@ import 'cart_provider.dart';
 /// Convert English numbers to Urdu numerals
 String toUrduNumber(dynamic number) {
   const english = ['0','1','2','3','4','5','6','7','8','9'];
+  // ignore: unused_local_variable
   const urdu = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
   String str = number.toString();
   for (int i = 0; i < english.length; i++) {
-    str = str.replaceAll(english[i], urdu[i]);
+    str = str.replaceAll(english[i], english[i]);
   }
   return str;
 }
@@ -45,16 +46,22 @@ class _CartPageState extends State<CartPage> {
     final order = {
       "order_id": orderId,
       "customer": customer,
+
       "items": cart.cart.map((item) => {
         "name": item["name"],
-        "pack": item["pack"],          // derived pack string
+        "pack": item["pack"],
         "price": item["price"],
         "qty": item["qty"],
         "total": item["price"] * item["qty"],
         "image": item["image"] ?? "",
       }).toList(),
+
       "grand_total": cart.totalPrice,
-      "status": "unpaid",
+
+      // 🔥 SEPARATED STATUSES
+      "status": "pending",          // order status
+      "payment_status": "unpaid",   // payment status
+
       "created_at": FieldValue.serverTimestamp(),
     };
 
@@ -66,7 +73,7 @@ class _CartPageState extends State<CartPage> {
     cart.clearCart();
   }
 
-  /// Show checkout confirmation dialog
+  /// Checkout confirmation dialog
   void _checkoutDialog(CartProvider cart) {
     showDialog(
       context: context,
@@ -98,14 +105,15 @@ class _CartPageState extends State<CartPage> {
                     Text("دکان: ${c["shop_name"]}"),
                     const Divider(),
 
-                    // Items
                     ...cart.cart.map((item) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text("${item["name"]} (${item["pack"]?.toString() ?? ""})"),
+                            child: Text(
+                              "${item["name"]} (${item["pack"] ?? ""})",
+                            ),
                           ),
                           Text(
                             "₨${toUrduNumber(item["price"] * item["qty"])}",
@@ -178,12 +186,12 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  /// Single cart item card
+  /// Cart item card
   Widget _cartItem(CartProvider cart, Map item, int index) {
     final total = item["price"] * item["qty"];
 
     return Dismissible(
-      key: ValueKey(index), // ensures same-name items are separate
+      key: ValueKey(index),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => cart.removeItem(index),
       background: Container(
@@ -211,7 +219,8 @@ class _CartPageState extends State<CartPage> {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.network(
-                item["image"] ?? "https://cdn-icons-png.flaticon.com/512/415/415733.png",
+                item["image"] ??
+                    "https://cdn-icons-png.flaticon.com/512/415/415733.png",
                 width: 70,
                 height: 70,
                 fit: BoxFit.cover,
@@ -226,13 +235,11 @@ class _CartPageState extends State<CartPage> {
                   Text(item["name"],
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
                   Text(item["pack"]?.toString() ?? "",
-                      style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,),),
                   Text("کل قیمت: ₨${toUrduNumber(total)}",
                       style: const TextStyle(
                           color: Colors.blue, fontWeight: FontWeight.bold)),
@@ -243,9 +250,11 @@ class _CartPageState extends State<CartPage> {
                       _qtyBtn(Icons.remove, () => cart.decreaseQty(index)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(toUrduNumber(item["qty"]),
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          toUrduNumber(item["qty"]),
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
                       ),
                       _qtyBtn(Icons.add, () => cart.increaseQty(index)),
                       const Spacer(),
@@ -285,11 +294,11 @@ class _CartPageState extends State<CartPage> {
                     Expanded(
                       child: ListView.builder(
                         itemCount: cart.cart.length,
-                        itemBuilder: (_, i) => _cartItem(cart, cart.cart[i], i),
+                        itemBuilder: (_, i) =>
+                            _cartItem(cart, cart.cart[i], i),
                       ),
                     ),
 
-                    // Bottom checkout bar
                     Container(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                       decoration: const BoxDecoration(
@@ -299,7 +308,6 @@ class _CartPageState extends State<CartPage> {
                         ],
                       ),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -321,14 +329,17 @@ class _CartPageState extends State<CartPage> {
                           ElevatedButton(
                             onPressed: () => _checkoutDialog(cart),
                             style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 52),
+                              minimumSize:
+                                  const Size(double.infinity, 52),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
                             ),
-                            child: const Text("چیک آؤٹ",
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              "چیک آؤٹ",
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),

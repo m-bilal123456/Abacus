@@ -7,6 +7,54 @@ class OrderDetailScreen extends StatelessWidget {
 
   const OrderDetailScreen({super.key, required this.order});
 
+  Color _orderStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _orderStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return Icons.check_circle;
+      case 'pending':
+        return Icons.hourglass_bottom;
+      case 'cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  Color _paymentColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'paid':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      default:
+        return Colors.red;
+    }
+  }
+
+  IconData _paymentIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'paid':
+        return Icons.payment;
+      case 'pending':
+        return Icons.schedule;
+      default:
+        return Icons.money_off;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = order['items'] as List<dynamic>? ?? [];
@@ -14,8 +62,12 @@ class OrderDetailScreen extends StatelessWidget {
         ? (order['created_at'] as Timestamp).toDate()
         : null;
 
-    final dateFormatted =
-        createdAt != null ? DateFormat('d MMMM yyyy, hh:mm a').format(createdAt) : "نامعلوم";
+    final dateFormatted = createdAt != null
+        ? DateFormat('d MMMM yyyy, hh:mm a').format(createdAt)
+        : "نامعلوم";
+
+    final orderStatus = (order['status'] ?? "نامعلوم").toString();
+    final paymentStatus = (order['payment_status'] ?? "نامعلوم").toString();
 
     return Scaffold(
       appBar: AppBar(title: const Text("آرڈر کی تفصیل")),
@@ -25,29 +77,45 @@ class OrderDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // HEADER
+              // ORDER INFO
               detailRow("آرڈر نمبر", order['order_id'] ?? "نامعلوم"),
               detailRow("تاریخ", dateFormatted),
-              detailRow(
-                "اسٹیٹس",
-                order['status'] ?? "نامعلوم",
-                color: (order['status'] ?? "").toLowerCase() == "completed"
-                    ? Colors.green
-                    : (order['status'] ?? "").toLowerCase() == "pending"
-                        ? Colors.orange
-                        : Colors.red,
+
+              const SizedBox(height: 10),
+
+              // STATUS CHIPS
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.end,
+                children: [
+                  _statusChip(
+                    label: "آرڈر اسٹیٹس",
+                    value: orderStatus,
+                    color: _orderStatusColor(orderStatus),
+                    icon: _orderStatusIcon(orderStatus),
+                  ),
+                  _statusChip(
+                    label: "ادائیگی کی حالت",
+                    value: paymentStatus,
+                    color: _paymentColor(paymentStatus),
+                    icon: _paymentIcon(paymentStatus),
+                  ),
+                ],
               ),
+
               const SizedBox(height: 20),
 
-              // HORIZONTAL SCROLLABLE ITEMS TABLE
+              // ITEMS TABLE (HORIZONTAL SCROLL)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Column(
                   children: [
-                    // HEADER ROW
+                    // HEADER
                     Container(
                       color: Colors.grey.shade300,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                       child: Row(
                         children: const [
                           SizedBox(width: 60, child: Text("تصویر", textAlign: TextAlign.center)),
@@ -59,9 +127,9 @@ class OrderDetailScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Divider(height: 0, color: Colors.black26),
+                    const Divider(height: 0),
 
-                    // ITEMS ROWS
+                    // ITEMS
                     ...items.map((item) {
                       final name = item['name'] ?? "نامعلوم";
                       final qty = item['qty']?.toString() ?? "0";
@@ -70,13 +138,15 @@ class OrderDetailScreen extends StatelessWidget {
                       final imageUrl = item['image'] ?? "";
 
                       return Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                         decoration: BoxDecoration(
-                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                          border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade300),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            // IMAGE
                             SizedBox(
                               width: 60,
                               height: 60,
@@ -84,36 +154,16 @@ class OrderDetailScreen extends StatelessWidget {
                                   ? Image.network(
                                       imageUrl,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
+                                      errorBuilder: (_, __, ___) =>
                                           const Icon(Icons.image),
                                     )
                                   : const Icon(Icons.image),
                             ),
                             const SizedBox(width: 10),
-
-                            // ITEM NAME
-                            SizedBox(
-                              width: 150,
-                              child: Text(name, textAlign: TextAlign.center),
-                            ),
-
-                            // QUANTITY
-                            SizedBox(
-                              width: 70,
-                              child: Text(qty, textAlign: TextAlign.center),
-                            ),
-
-                            // PRICE
-                            SizedBox(
-                              width: 80,
-                              child: Text("Rs. $price", textAlign: TextAlign.center),
-                            ),
-
-                            // TOTAL
-                            SizedBox(
-                              width: 80,
-                              child: Text("Rs. $total", textAlign: TextAlign.center),
-                            ),
+                            SizedBox(width: 150, child: Text(name, textAlign: TextAlign.center)),
+                            SizedBox(width: 70, child: Text(qty, textAlign: TextAlign.center)),
+                            SizedBox(width: 80, child: Text("Rs. $price", textAlign: TextAlign.center)),
+                            SizedBox(width: 80, child: Text("Rs. $total", textAlign: TextAlign.center)),
                           ],
                         ),
                       );
@@ -161,24 +211,43 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget detailRow(String title, String value, {Color? color}) {
+  Widget _statusChip({
+    required String label,
+    required String value,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Chip(
+      avatar: Icon(icon, color: color, size: 18),
+      label: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: color.withOpacity(0.1),
+      side: BorderSide(color: color),
+    );
+  }
+
+  Widget detailRow(String title, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color ?? Colors.black,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 16),
-          ),
+          Text(title, style: const TextStyle(fontSize: 16)),
         ],
       ),
     );

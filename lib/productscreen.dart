@@ -1,3 +1,4 @@
+import 'package:abacus/activeordersscreen.dart';
 import 'package:abacus/cart_provider.dart';
 import 'package:abacus/cartpage.dart';
 import 'package:abacus/categoryproductscreen.dart';
@@ -297,10 +298,11 @@ void _preloadBrandImages() async {
                     }
                   }
                   else if (index == 3) {
-                    // ✅ 4th HOME GRID → Cart
-                    setState(() {
-                        currentIndex = 3; // Switch to Cart tab
-                      });
+                    // ✅ 4th HOME GRID → Active Orders
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ActiveOrdersScreen()),
+                    );
                   } 
 
                   else if (index == 4) {

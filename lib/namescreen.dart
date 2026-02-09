@@ -12,6 +12,28 @@ class NameScreen extends StatefulWidget {
 class _NameScreenState extends State<NameScreen> {
   final _nametextEditing = TextEditingController();
 
+  void _goNext() {
+    final name = _nametextEditing.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('براہ کرم اپنا نام درج کریں'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Save the name for Firestore later
+    saveData('name', name);
+
+    // Navigate to ShopNameScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ShopNameScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var screenSizes = MediaQuery.of(context).size;
@@ -104,15 +126,7 @@ class _NameScreenState extends State<NameScreen> {
               right: 35,
               child: FloatingActionButton(
                 backgroundColor: Colors.green,
-                onPressed: () {
-                  saveData('name', _nametextEditing.text);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ShopNameScreen(),
-                    ),
-                  );
-                },
+                onPressed: _goNext,
                 child: const Icon(Icons.arrow_forward, size: 28),
               ),
             ),

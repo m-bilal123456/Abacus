@@ -2,6 +2,8 @@ import 'package:abacus/cart_provider.dart';
 import 'package:abacus/main.dart';
 import 'package:abacus/myorderscreens.dart';
 import 'package:abacus/search_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +28,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? latitude;
   String? longitude;
 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   @override
   void initState() {
     super.initState();
@@ -33,15 +38,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     loadLocationData();
   }
 
+  // Fetch user profile from Firestore, fallback to cache
   void loadUserData() async {
-    String? n = await readData("name");
-    String? p = await readData("phoneno");
-    String? s = await readData("shopname");
+    final uid = _auth.currentUser?.uid;
+    Map<String, dynamic>? firestoreData;
+
+    if (uid != null) {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists) {
+        firestoreData = doc.data();
+        // Update cache
+        if (firestoreData != null) {
+          await saveData("name", firestoreData['name'] ?? "");
+          await saveData("phone", firestoreData['phone'] ?? "");
+          await saveData("shopName", firestoreData['shopName'] ?? "");
+        }
+      }
+    }
+
+    // Fallback to cache
+    String? n = firestoreData?['name'] ?? await readData("name");
+    String? p = firestoreData?['phone'] ?? await readData("phone");
+    String? s = firestoreData?['shopName'] ?? await readData("shopName");
 
     setState(() {
-      name = n ?? "صارف کا نام";
+      name = n?.isNotEmpty == true ? n! : "صارف کا نام";
       phone = p ?? "";
-      shopName = s ?? "دکان کا نام";
+      shopName = s?.isNotEmpty == true ? s! : "دکان کا نام";
     });
   }
 
@@ -97,28 +120,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-
   Future<void> openWhatsApp() async {
-  const String phoneNumber = "923234491419"; // full international number WITHOUT +
-  const String message = "السلام علیکم، مجھے مدد چاہیے";
+    const String phoneNumber = "923234491419"; // full international number WITHOUT +
+    const String message = "السلام علیکم، مجھے مدد چاہیے";
 
-  // First try the app URI
-  final Uri appUri = Uri.parse(
-    "whatsapp://send?phone=$phoneNumber&text=${Uri.encodeComponent(message)}",
-  );
+    final Uri appUri = Uri.parse(
+      "whatsapp://send?phone=$phoneNumber&text=${Uri.encodeComponent(message)}",
+    );
+    final Uri webUri = Uri.parse(
+      "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}",
+    );
 
-  // Fallback to WhatsApp Web
-  final Uri webUri = Uri.parse(
-    "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}",
-  );
-
-  try {
-    if (await canLaunchUrl(appUri)) {
-      // WhatsApp app is installed
-      await launchUrl(appUri, mode: LaunchMode.externalApplication);
-    } else {
-      // Open WhatsApp Web
-      if (await canLaunchUrl(webUri)) {
+    try {
+      if (await canLaunchUrl(appUri)) {
+        await launchUrl(appUri, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(webUri)) {
         await launchUrl(webUri, mode: LaunchMode.externalApplication);
       } else {
         if (!mounted) return;
@@ -126,34 +142,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SnackBar(content: Text("واٹس ایپ نہیں کھل سکی")),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("واٹس ایپ نہیں کھل سکی")),
+      );
     }
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("واٹس ایپ نہیں کھل سکی")),
-    );
   }
-}
 
   Future<void> callHelpline() async {
-  const String phoneNumber = "03001234567"; // Local format is fine
+    const String phoneNumber = "03001234567"; // Local format is fine
+    final Uri callUri = Uri.parse("tel:$phoneNumber");
 
-  final Uri callUri = Uri.parse("tel:$phoneNumber");
-
-  if (await canLaunchUrl(callUri)) {
-    await launchUrl(
-      callUri,
-      mode: LaunchMode.externalApplication, // Open phone dialer
-    );
-  } else {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("کال کرنے کی سہولت دستیاب نہیں ہے"),
-      ),
-    );
+    if (await canLaunchUrl(callUri)) {
+      await launchUrl(
+        callUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("کال کرنے کی سہولت دستیاب نہیں ہے"),
+        ),
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: Text(
                                   phone.isEmpty
                                       ? "کوئی فون نمبر محفوظ نہیں ہے"
-                                      : '+92 $phone',
+                                      : phone,
                                   style: const TextStyle(fontSize: 18),
                                   textAlign: TextAlign.right,
                                 ),
@@ -433,7 +447,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Updated menuItem with optional callbacks
   Widget menuItem(IconData icon, String title,
       {Widget? navigateTo, VoidCallback? onTap}) {
     return GestureDetector(
@@ -495,6 +508,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController phoneCtrl;
   late TextEditingController shopCtrl;
 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   @override
   void initState() {
     super.initState();
@@ -504,9 +520,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> saveProfile() async {
-    await saveData("name", nameCtrl.text.trim());
-    await saveData("phoneno", phoneCtrl.text.trim());
-    await saveData("shopname", shopCtrl.text.trim());
+    final uid = _auth.currentUser?.uid;
+    final String n = nameCtrl.text.trim();
+    final String p = phoneCtrl.text.trim();
+    final String s = shopCtrl.text.trim();
+
+    // Update cache
+    await saveData("name", n);
+    await saveData("phoneno", p);
+    await saveData("shopname", s);
+
+    // Save to Firestore only if UID exists
+    if (uid != null) {
+      final docRef = _firestore.collection('users').doc(uid);
+      final doc = await docRef.get();
+
+      // Prevent overwrite if document exists
+      if (!doc.exists) {
+        await docRef.set({
+          'uid': uid,
+          'name': n,
+          'phoneno': p,
+          'shopname': s,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Update existing fields
+        await docRef.update({
+          'name': n,
+          'phoneno': p,
+          'shopname': s,
+        });
+      }
+    }
 
     if (!mounted) return;
     Navigator.pop(context);

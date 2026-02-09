@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class OrderDetailScreen extends StatelessWidget {
@@ -57,10 +57,14 @@ class OrderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = order['items'] as List<dynamic>? ?? [];
-    final createdAt = order['created_at'] is Timestamp
-        ? (order['created_at'] as Timestamp).toDate()
-        : null;
+    final customer = Map<String, dynamic>.from(order['customer'] ?? {});
+    final items = List<Map<String, dynamic>>.from(order['items'] ?? []);
+
+    final createdAt = order['createdAt'] is DateTime
+        ? order['createdAt'] as DateTime
+        : order['createdAt'] is Timestamp
+            ? (order['createdAt'] as Timestamp).toDate()
+            : null;
 
     final dateFormatted = createdAt != null
         ? DateFormat('d MMMM yyyy, hh:mm a').format(createdAt)
@@ -78,9 +82,11 @@ class OrderDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // ORDER INFO
-              detailRow("آرڈر نمبر", order['order_id'] ?? "نامعلوم"),
-              detailRow("تاریخ", dateFormatted),
-
+              _detailRow("آرڈر نمبر", order['order_id'] ?? "نامعلوم"),
+              _detailRow("تاریخ", dateFormatted),
+              _detailRow("کسٹمر", customer['name'] ?? "-"),
+              _detailRow("دکان", customer['shop_name'] ?? "-"),
+              _detailRow("فون نمبر", customer['phone'] ?? "-"),
               const SizedBox(height: 10),
 
               // STATUS CHIPS
@@ -103,10 +109,9 @@ class OrderDetailScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 20),
 
-              // ITEMS TABLE (HORIZONTAL SCROLL)
+              // ITEMS TABLE
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Column(
@@ -114,8 +119,7 @@ class OrderDetailScreen extends StatelessWidget {
                     // HEADER
                     Container(
                       color: Colors.grey.shade300,
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                       child: Row(
                         children: const [
                           SizedBox(width: 60, child: Text("تصویر", textAlign: TextAlign.center)),
@@ -138,8 +142,7 @@ class OrderDetailScreen extends StatelessWidget {
                       final imageUrl = item['image'] ?? "";
 
                       return Container(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(color: Colors.grey.shade300),
@@ -154,8 +157,7 @@ class OrderDetailScreen extends StatelessWidget {
                                   ? Image.network(
                                       imageUrl,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          const Icon(Icons.image),
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.image),
                                     )
                                   : const Icon(Icons.image),
                             ),
@@ -171,7 +173,6 @@ class OrderDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
 
               // GRAND TOTAL
@@ -225,10 +226,7 @@ class OrderDetailScreen extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 12)),
           Text(
             value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -237,16 +235,13 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget detailRow(String title, String value) {
+  Widget _detailRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           Text(title, style: const TextStyle(fontSize: 16)),
         ],
       ),

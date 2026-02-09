@@ -12,6 +12,28 @@ class ShopNameScreen extends StatefulWidget {
 class _ShopNameScreenState extends State<ShopNameScreen> {
   final _shoptextEditing = TextEditingController();
 
+  void _goNext() {
+    final shopName = _shoptextEditing.text.trim();
+    if (shopName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('براہ کرم دکان کا نام درج کریں'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Save the shop name for Firestore later
+    saveData('shopname', shopName);
+
+    // Navigate to MapScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MapScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var screenSizes = MediaQuery.of(context).size;
@@ -25,7 +47,6 @@ class _ShopNameScreenState extends State<ShopNameScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Title Text
                   const Text(
                     "دکان کا نام",
                     textAlign: TextAlign.center,
@@ -34,7 +55,6 @@ class _ShopNameScreenState extends State<ShopNameScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-
                   const SizedBox(height: 30),
 
                   // TextField
@@ -104,15 +124,7 @@ class _ShopNameScreenState extends State<ShopNameScreen> {
               right: 35,
               child: FloatingActionButton(
                 backgroundColor: Colors.green,
-                onPressed: () {
-                  saveData('shopname', _shoptextEditing.text);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MapScreen(),
-                    ),
-                  );
-                },
+                onPressed: _goNext,
                 child: const Icon(Icons.arrow_forward, size: 28),
               ),
             ),

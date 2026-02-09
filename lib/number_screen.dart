@@ -1,5 +1,6 @@
 import 'package:abacus/cache.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'otpscreen.dart';
 
 class NumberScreen extends StatefulWidget {
@@ -11,6 +12,38 @@ class NumberScreen extends StatefulWidget {
 
 class _NumberScreenState extends State<NumberScreen> {
   final _numberTextController = TextEditingController();
+
+  void _goToOtp() {
+    final number = _numberTextController.text.trim();
+
+    if (number.isEmpty) {
+      _showError('براہ کرم نمبر درج کریں');
+      return;
+    }
+
+    if (number.length != 10) {
+      _showError('نمبر 10 ہندسوں کا ہونا چاہیے');
+      return;
+    }
+
+    // Save number to Firestore/local cache
+    saveData('phoneno', number);
+
+    // Navigate to OTP screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => OTPScreen(phoneNumber: '+92$number',)),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +102,7 @@ class _NumberScreenState extends State<NumberScreen> {
                 // PERFECTLY CENTERED PHONE INPUT
                 Center(
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,   // Ensures perfect centering
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
                         '+92',
@@ -80,7 +113,7 @@ class _NumberScreenState extends State<NumberScreen> {
                       ),
                       const SizedBox(width: 10),
                       SizedBox(
-                        width: screenSize.width * 0.45,  // Slightly slimmer for visual balance
+                        width: screenSize.width * 0.45,
                         child: TextField(
                           controller: _numberTextController,
                           textAlign: TextAlign.start,
@@ -100,6 +133,10 @@ class _NumberScreenState extends State<NumberScreen> {
                           ),
                           keyboardType: TextInputType.number,
                           maxLength: 10,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly, // Only digits
+                            LengthLimitingTextInputFormatter(10),   // Max 10 digits
+                          ],
                         ),
                       ),
                     ],
@@ -113,15 +150,7 @@ class _NumberScreenState extends State<NumberScreen> {
               bottom: 30,
               right: 30,
               child: GestureDetector(
-                onTap: () {
-                  saveData('phoneno', _numberTextController.text);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const OTPScreen(),
-                    ),
-                  );
-                },
+                onTap: _goToOtp,
                 child: Container(
                   width: 60,
                   height: 60,

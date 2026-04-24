@@ -236,15 +236,60 @@ void _preloadBrandImages() async {
           ),
 
           // ---------------- CAROUSEL ----------------
-          if (!isSearching)
-            CarouselSlider(
-              items: imageSliders,
-              options: CarouselOptions(
-                autoPlay: true,
-                aspectRatio: 2,
-                enlargeCenterPage: true,
-              ),
-            ),
+         if (!isSearching)
+  StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('offers')
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return const Center(child: Text("No offers found"));
+      }
+
+      final offers = snapshot.data!.docs;
+
+      final sliders = offers.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        String image = data['image'] ?? '';
+
+        // 🔥 Fix ibb links automatically
+        if (image.contains("ibb.co")) {
+          image = image
+              .replaceFirst("https://ibb.co/", "https://i.ibb.co/");
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: CachedNetworkImage(
+            imageUrl: image,
+            cacheManager: AppImageCacheManager(),
+            fit: BoxFit.cover,
+            width: 1000,
+            placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator()),
+            errorWidget: (context, url, error) =>
+                const Icon(Icons.broken_image),
+          ),
+        );
+      }).toList();
+
+      return CarouselSlider(
+        items: sliders,
+        options: CarouselOptions(
+          autoPlay: true,
+          aspectRatio: 2,
+          enlargeCenterPage: true,
+        ),
+      );
+    },
+  ),
+
+  //if (!isSearching) CarouselSlider( items: imageSliders, options: CarouselOptions( autoPlay: true, aspectRatio: 2, enlargeCenterPage: true, ), ),
 
           // ---------------- CATEGORY GRID ----------------
           if (!isSearching)

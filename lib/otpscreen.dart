@@ -18,40 +18,74 @@ class OTPScreen extends StatefulWidget {
 class _OTPScreenState extends State<OTPScreen> {
   final _otpController = TextEditingController();
 
-  late String _verificationId;
-
+  String _verificationId = "";
   Timer? _timer;
+
   int _secondsRemaining = 60;
   bool _canResend = false;
 
   int _resendCount = 0;
   static const int _maxResend = 3;
 
+  // ================= DEBUG SYSTEM =================
+
+  String _debugLog = "";
+  final bool _showDebug = true;
+
+  void _log(String message) {
+    final time = DateTime.now().toIso8601String();
+    setState(() {
+      _debugLog += "\n[$time] $message";
+    });
+    print(message);
+  }
+
+  // =================================================
+
   @override
   void initState() {
     super.initState();
+    _log("🟢 OTP Screen Opened");
     _silentLoginCheck();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _otpController.dispose();
     super.dispose();
   }
 
-  // ✅ SILENT AUTO LOGIN
-  Future<void> _silentLoginCheck() async {
-    final user = FirebaseAuth.instance.currentUser;
+  // ================= SILENT LOGIN =================
 
-    if (user != null) {
-      await _saveUid(user.uid);
-      await _createUserIfNotExists(user);
-      _goToNextScreen();
-    } else {
-      _sendOTP();
-      _startCountdown();
+  Future<void> _silentLoginCheck() async {
+    _log("🔍 Checking existing Firebase user...");
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        _log("✅ User already logged in: ${user.uid}");
+
+        await _saveUid(user.uid);
+        _log("✅ UID saved locally");
+
+        await _createUserIfNotExists(user);
+        _log("✅ Firestore user checked");
+
+        _goToNextScreen();
+      } else {
+        _log("ℹ No existing user found. Sending OTP...");
+        _sendOTP();
+        _startCountdown();
+      }
+    } catch (e, stack) {
+      _log("❌ Silent login error: $e");
+      _log("STACK: $stack");
     }
   }
+
+  // ================= COUNTDOWN =================
 
   void _startCountdown() {
     _secondsRemaining = 60;
@@ -67,14 +101,20 @@ class _OTPScreenState extends State<OTPScreen> {
         } else {
           _canResend = true;
           timer.cancel();
+          _log("⏱ Countdown finished. Can resend OTP.");
         }
       });
     });
   }
 
-  // 📩 SEND OTP WITH LIMIT
+  // ================= SEND OTP =================
+
   void _sendOTP() async {
+    _log("🚀 Starting OTP request...");
+    _log("📱 Phone number: ${widget.phoneNumber}");
+
     if (_resendCount >= _maxResend) {
+      _log("❌ OTP resend limit reached.");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("OTP limit reached. Try again later.")),
       );
@@ -83,42 +123,76 @@ class _OTPScreenState extends State<OTPScreen> {
 
     _resendCount++;
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: widget.phoneNumber,
-      timeout: const Duration(seconds: 60),
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: widget.phoneNumber,
+        timeout: const Duration(seconds: 60),
 
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        final userCredential =
-            await FirebaseAuth.instance.signInWithCredential(credential);
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          _log("✅ verificationCompleted triggered (AUTO SMS)");
 
-        await _saveUid(userCredential.user!.uid);
-        await _createUserIfNotExists(userCredential.user!);
+          try {
+            final userCredential =
+                await FirebaseAuth.instance.signInWithCredential(credential);
 
-        _goToNextScreen();
-      },
+            _log("✅ Auto sign-in success. UID: ${userCredential.user?.uid}");
 
-      verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('OTP failed: ${e.message}')),
-        );
-      },
+            await _saveUid(userCredential.user!.uid);
+            _log("✅ UID saved locally");
 
-      codeSent: (String verificationId, int? resendToken) {
-        _verificationId = verificationId;
-        _startCountdown();
-      },
+            await _createUserIfNotExists(userCredential.user!);
+            _log("✅ Firestore user checked/created");
 
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+            _goToNextScreen();
+          } catch (e, stack) {
+            _log("❌ Auto sign-in error: $e");
+            _log("STACK: $stack");
+          }
+        },
+
+        verificationFailed: (FirebaseAuthException e) {
+          _log("❌ verificationFailed triggered");
+          _log("Error Code: ${e.code}");
+          _log("Error Message: ${e.message}");
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('OTP failed: ${e.message}')),
+          );
+        },
+
+        codeSent: (String verificationId, int? resendToken) {
+          _log("📩 OTP Code Sent!");
+          _log("Verification ID: $verificationId");
+          _verificationId = verificationId;
+          _startCountdown();
+        },
+
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _log("⏳ Auto retrieval timeout");
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e, stack) {
+      _log("❌ verifyPhoneNumber crashed");
+      _log("Error: $e");
+      _log("STACK: $stack");
+    }
   }
 
-  // 🔐 VERIFY OTP
+  // ================= VERIFY OTP =================
+
   void _verifyOTP() async {
     final otp = _otpController.text.trim();
 
+    _log("🔐 Manual OTP verification started");
+    _log("Entered OTP: $otp");
+
+    if (_verificationId.isEmpty) {
+      _log("❌ Verification ID is empty!");
+    }
+
     if (otp.length != 6) {
+      _log("❌ OTP length invalid");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('براہ کرم 6 ہندسوں کا OTP درج کریں')),
       );
@@ -134,39 +208,74 @@ class _OTPScreenState extends State<OTPScreen> {
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
+      _log("✅ Manual sign-in success. UID: ${userCredential.user?.uid}");
+
       await _saveUid(userCredential.user!.uid);
+      _log("✅ UID saved locally");
+
       await _createUserIfNotExists(userCredential.user!);
+      _log("✅ Firestore user checked/created");
 
       _goToNextScreen();
-    } catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      _log("❌ FirebaseAuthException during manual verify");
+      _log("Error Code: ${e.code}");
+      _log("Message: ${e.message}");
+      _log("STACK: $stack");
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP غلط ہے، دوبارہ کوشش کریں')),
+        SnackBar(content: Text('Error: ${e.message}')),
       );
+    } catch (e, stack) {
+      _log("❌ Unknown error during manual verify");
+      _log("Error: $e");
+      _log("STACK: $stack");
     }
   }
 
-  // 💾 SAVE UID LOCALLY
+  // ================= FIRESTORE =================
+
   Future<void> _saveUid(String uid) async {
-    await saveData("customerId", uid);
+    try {
+      await saveData("customerId", uid);
+      _log("💾 UID saved locally successfully");
+    } catch (e, stack) {
+      _log("❌ Failed to save UID locally");
+      _log("Error: $e");
+      _log("STACK: $stack");
+    }
   }
 
-  // 👤 AUTO CREATE USER DOC
   Future<void> _createUserIfNotExists(User user) async {
-    final userDoc =
-        FirebaseFirestore.instance.collection('users').doc(user.uid);
+    try {
+      final userDoc =
+          FirebaseFirestore.instance.collection('users').doc(user.uid);
 
-    final snapshot = await userDoc.get();
+      final snapshot = await userDoc.get();
 
-    if (!snapshot.exists) {
-      await userDoc.set({
-        'uid': user.uid,
-        'phone': widget.phoneNumber,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      if (!snapshot.exists) {
+        _log("👤 Creating new Firestore user...");
+
+        await userDoc.set({
+          'uid': user.uid,
+          'phone': widget.phoneNumber,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        _log("✅ New user document created");
+      } else {
+        _log("ℹ User already exists in Firestore");
+      }
+    } catch (e, stack) {
+      _log("❌ Firestore user creation error");
+      _log("Error: $e");
+      _log("STACK: $stack");
     }
   }
 
   void _goToNextScreen() {
+    _log("➡ Navigating to NameScreen");
+
     if (!mounted) return;
 
     Navigator.pushReplacement(
@@ -175,7 +284,7 @@ class _OTPScreenState extends State<OTPScreen> {
     );
   }
 
-  // ================= UI BELOW (UNCHANGED) =================
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
@@ -187,39 +296,19 @@ class _OTPScreenState extends State<OTPScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 25),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text("ہیلپ لائن"),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 50),
               const Text(
                 "کوڈ درج کریں",
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+
               Text(
                 "پر ${widget.phoneNumber} بھیجا گیا",
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                style: const TextStyle(color: Colors.grey),
               ),
 
               const SizedBox(height: 40),
@@ -251,17 +340,12 @@ class _OTPScreenState extends State<OTPScreen> {
                       onPressed: _sendOTP,
                       child: const Text(
                         "OTP دوبارہ بھیجیں",
-                        style:
-                            TextStyle(fontSize: 16, color: Colors.green),
+                        style: TextStyle(color: Colors.green),
                       ),
                     )
-                  : Text(
-                      "$_secondsRemaining سیکنڈ میں دوبارہ بھیجیں",
-                      style:
-                          const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
+                  : Text("$_secondsRemaining سیکنڈ میں دوبارہ بھیجیں"),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
 
               SizedBox(
                 width: double.infinity,
@@ -277,6 +361,31 @@ class _OTPScreenState extends State<OTPScreen> {
                   ),
                 ),
               ),
+
+              const SizedBox(height: 20),
+
+              // ================= DEBUG PANEL =================
+
+              if (_showDebug)
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        _debugLog,
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

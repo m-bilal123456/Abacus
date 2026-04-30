@@ -12,6 +12,26 @@ class CarouselDetailsScreen extends StatelessWidget {
     required this.image,
   });
 
+  Widget buildImage() {
+    if (image.startsWith("http")) {
+      return Image.network(
+        image,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        height: 230,
+        errorBuilder: (context, error, stackTrace) =>
+            const Icon(Icons.broken_image, size: 50),
+      );
+    } else {
+      return Image.asset(
+        image,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        height: 230,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -19,30 +39,30 @@ class CarouselDetailsScreen extends StatelessWidget {
 
       // ---------------- AppBar ----------------
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2D7A1F), // Green bar
+        backgroundColor: const Color(0xFF2D7A1F),
         automaticallyImplyLeading: false,
         elevation: 0,
-        title: Row(
-          children: [
-            const Text(
-              "آفرز  >  قرعہ اندازی - ویلو",
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white,
-                fontFamily: "JameelNoori",
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: const CircleAvatar(
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            color: Colors.white,
+            fontFamily: "JameelNoori",
+          ),
+        ),
+        actions: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: CircleAvatar(
                 backgroundColor: Colors.white,
                 radius: 14,
                 child: Icon(Icons.close, color: Colors.black, size: 18),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
 
       body: Column(
@@ -53,31 +73,25 @@ class CarouselDetailsScreen extends StatelessWidget {
               bottomLeft: Radius.circular(20),
               bottomRight: Radius.circular(20),
             ),
-            child: Image.asset(
-              image,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              height: 230,
-            ),
+            child: buildImage(),
           ),
 
-          // ---------------- Yellow Coupon Bar ----------------
+          // ---------------- DESCRIPTION (FROM FIRESTORE) ----------------
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
             width: double.infinity,
             decoration: BoxDecoration(
               color: const Color(0xFFFFD54F),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Center(
-              child: Text(
-                "!ہر Rs 3,500 کی خریداری پر کوپن حاصل کریں",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontFamily: "JameelNoori",
-                  fontWeight: FontWeight.bold,
-                ),
+            child: Text(
+              description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontFamily: "JameelNoori",
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -135,8 +149,10 @@ class CarouselDetailsScreen extends StatelessWidget {
                 final item = leaderboard[index];
 
                 return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -149,7 +165,7 @@ class CarouselDetailsScreen extends StatelessWidget {
                       Expanded(
                         flex: 2,
                         child: Text(
-                          item['name']!,
+                          item['name'],
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 16),
                         ),
@@ -157,8 +173,11 @@ class CarouselDetailsScreen extends StatelessWidget {
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(Icons.confirmation_number_rounded,
-                                size: 18, color: Colors.orange),
+                            const Icon(
+                              Icons.confirmation_number_rounded,
+                              size: 18,
+                              color: Colors.orange,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               "${item['coins']}",
@@ -179,7 +198,7 @@ class CarouselDetailsScreen extends StatelessWidget {
   }
 }
 
-// Dummy leaderboard
+// Dummy leaderboard (you can later replace with Firestore)
 final List<Map<String, dynamic>> leaderboard = [
   {"rank": 1, "name": "Munna G Paan Shop", "coins": 48},
   {"rank": 2, "name": "Qadir Pan Shop", "coins": 19},

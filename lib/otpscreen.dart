@@ -37,6 +37,7 @@ class _OTPScreenState extends State<OTPScreen> {
     setState(() {
       _debugLog += "\n[$time] $message";
     });
+    // ignore: avoid_print
     print(message);
   }
 
@@ -222,7 +223,8 @@ class _OTPScreenState extends State<OTPScreen> {
       _log("Error Code: ${e.code}");
       _log("Message: ${e.message}");
       _log("STACK: $stack");
-
+      
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.message}')),
       );

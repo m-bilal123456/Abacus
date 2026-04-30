@@ -199,7 +199,8 @@ void _checkoutDialog(CartProvider cart) {
 
     // 🔹 Clear cart
     cart.clearCart();
-  } catch (e){}
+  // ignore: avoid_print
+  } catch (e){print (e);}
 }
 
 

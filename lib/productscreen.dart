@@ -147,7 +147,7 @@ void _preloadBrandImages() async {
     final searchQuery = context.watch<SearchProvider>().query.trim();
     final bool isSearching = searchQuery.isNotEmpty;
 
-    final List<Widget> imageSliders = carouselData.map((item) {
+    carouselData.map((item) {
       return GestureDetector(
         onTap: () {
           Navigator.push(
@@ -155,7 +155,7 @@ void _preloadBrandImages() async {
             MaterialPageRoute(
               builder: (_) => CarouselDetailsScreen(
                 title: item["title"]!,
-                description: item["desc"]!,
+                description: item["description"]!,
                 image: item["image"]!,
               ),
             ),
@@ -253,30 +253,40 @@ void _preloadBrandImages() async {
       final offers = snapshot.data!.docs;
 
       final sliders = offers.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+  final data = doc.data() as Map<String, dynamic>;
 
-        String image = data['image'] ?? '';
+  String image = data['image'] ?? '';
+  String title = data['title'] ?? '';
+  String description = data['description'] ?? '';
 
-        // 🔥 Fix ibb links automatically
-        if (image.contains("ibb.co")) {
-          image = image
-              .replaceFirst("https://ibb.co/", "https://i.ibb.co/");
-        }
-
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: CachedNetworkImage(
-            imageUrl: image,
-            cacheManager: AppImageCacheManager(),
-            fit: BoxFit.cover,
-            width: 1000,
-            placeholder: (context, url) =>
-                const Center(child: CircularProgressIndicator()),
-            errorWidget: (context, url, error) =>
-                const Icon(Icons.broken_image),
+  return GestureDetector(
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CarouselDetailsScreen(
+            title: title,
+            description: description,
+            image: image,
           ),
-        );
-      }).toList();
+        ),
+      );
+    },
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: CachedNetworkImage(
+        imageUrl: image,
+        cacheManager: AppImageCacheManager(),
+        fit: BoxFit.cover,
+        width: 1000,
+        placeholder: (context, url) =>
+            const Center(child: CircularProgressIndicator()),
+        errorWidget: (context, url, error) =>
+            const Icon(Icons.broken_image),
+      ),
+    ),
+  );
+}).toList();
 
       return CarouselSlider(
         items: sliders,
@@ -494,7 +504,7 @@ void _preloadBrandImages() async {
     // ---------------- SCREENS ----------------
     final List<Widget> screens = [
       SafeArea(child: homeBody),
-      const SafeArea(child: OfferScreen()),
+      SafeArea(child: OfferScreen()),
       const SafeArea(child: VoiceScreen()),
       SafeArea(child: CartPage()),
       const SafeArea(child: ProfileScreen()),

@@ -230,7 +230,7 @@ class OrderDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide(color: color),
     );
   }
